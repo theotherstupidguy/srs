@@ -1,100 +1,100 @@
 require 'fileutils'
 
 module SRS
-	class CLI
-		class Reschedule
-			def run!(arguments)
-				if not SRS::Workspace.initialised? then
-					puts "Current directory is not an SRS Workspace"
-					return 3
-				end
+  class CLI
+    class Reschedule
+      def run!(arguments)
+	if not SRS::Workspace.initialised? then
+	  puts "Current directory is not an SRS Workspace"
+	  return 3
+	end
 
-				schedule_id = arguments.shift
-				score = arguments.shift.to_f
+	schedule_id = arguments.shift
+	score = arguments.shift.to_f
 
-				is_new = false;
-				schedulefile = "schedule/#{schedule_id}"
+	is_new = false;
+	schedulefile = "schedule/#{schedule_id}"
 
-				if not File.exists?(schedulefile) then
-					schedulefile = "schedule/pending/#{schedule_id}"
-					is_new = true
-					if not File.exists?(schedulefile) then
-						puts "No content with that ID exists"
-						return 4
-					end
-				end
+	if not File.exists?(schedulefile) then
+	  schedulefile = "schedule/pending/#{schedule_id}"
+	  is_new = true
+	  if not File.exists?(schedulefile) then
+	    puts "No content with that ID exists"
+	    return 4
+	  end
+	end
 
-				headers = {}
-				File.open(schedulefile, "r") do |file|
-					while( line = file.gets() ) do
-						if line.strip.empty? then
-							break
-						end
+	headers = {}
+	File.open(schedulefile, "r") do |file|
+	  while( line = file.gets() ) do
+	    if line.strip.empty? then
+	      break
+	    end
 
-						key, *val = line.split(':').map{|e| e.strip}
-						headers[key] = val.join(':')
-					end
-				end
+	    key, *val = line.split(':').map{|e| e.strip}
+	    headers[key] = val.join(':')
+	  end
+	end
 
-				if not headers.has_key?("Scheduler") then
-					puts "Schedule #{schedule_id} has no scheduler!\n"
-					return 6
-				end
+	if not headers.has_key?("Scheduler") then
+	  puts "Schedule #{schedule_id} has no scheduler!\n"
+	  return 6
+	end
 
-				exercise = headers.delete("Exercise")
-				schedulername = headers.delete("Scheduler")
-				was_repeat = (headers["Repeat"] == "true")
+	exercise = headers.delete("Exercise")
+	schedulername = headers.delete("Scheduler")
+	was_repeat = (headers["Repeat"] == "true")
 
-				scheduler = getScheduler(schedulername)
-				headersOut = is_new ? scheduler.first_rep(score) : scheduler.rep(score, headers)
+	scheduler = getScheduler(schedulername)
+	headersOut = is_new ? scheduler.first_rep(score) : scheduler.rep(score, headers)
 
-				FileUtils.rm_rf( schedulefile )
+	FileUtils.rm_rf( schedulefile )
 
-				fileOut = "schedule/#{schedule_id}"
-				File.open(fileOut, "w") do |file|
-					file.puts "Exercise: #{exercise}"
-					file.puts "Scheduler: #{schedulername}"
-					headersOut.each do |key, value|
-						file.puts "#{key}: #{value.to_s}"
-					end
-				end
+	fileOut = "schedule/#{schedule_id}"
+	File.open(fileOut, "w") do |file|
+	  file.puts "Exercise: #{exercise}"
+	  file.puts "Scheduler: #{schedulername}"
+	  headersOut.each do |key, value|
+	    file.puts "#{key}: #{value.to_s}"
+	  end
+	end
 
-				if not was_repeat then
-					puts "Exercise rescheduled for #{headersOut["Due"]}"
-				else
-					puts "Exercise passed; removed from repeats list" if not headersOut["Repeat"]
-				end
+	if not was_repeat then
+	  puts "Exercise rescheduled for #{headersOut["Due"]}"
+	else
+	  puts "Exercise passed; removed from repeats list" if not headersOut["Repeat"]
+	end
 
-				puts "Exercise failed; marked for repetition" if headersOut["Repeat"]
+	puts "Exercise failed; marked for repetition" if headersOut["Repeat"]
 
-				return 0
-			end
+	return 0
+      end
 
-			def getScheduler(schedulername)
-				begin
-					require "./schedulers/#{schedulername}"
-				rescue LoadError
-					begin
-						require "srs/schedulers/#{schedulername}"
-					rescue LoadError
-						puts "Couldn't find scheduler #{schedulername}."
-						return nil
-					end
-				end
+      def getScheduler(schedulername)
+	begin
+	  require "./schedulers/#{schedulername}"
+	rescue LoadError
+	  begin
+	    require "srs/schedulers/#{schedulername}"
+	  rescue LoadError
+	    puts "Couldn't find scheduler #{schedulername}."
+	    return nil
+	  end
+	end
 
-				SRS::Schedulers.const_get(schedulername.to_sym).new
-			end
+	SRS::Schedulers.const_get(schedulername.to_sym).new
+      end
 
-			def help()
-				puts <<-EOF
+      def help()
+	puts <<-EOF
 srs reschedule <id> <score>
 
 Rescedules the exercise being set by schedule id according to the score
 supplied.  Makes use of the scheduler defined for that schedule.  The score
 passed in will typically be that returned from do-exercise.
-					EOF
-			end
-		end
-	end
+	EOF
+      end
+    end
+  end
 end
 

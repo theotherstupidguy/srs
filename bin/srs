@@ -8,4 +8,3 @@ rescue LoadError
 end
 
 exit SRS::CLI.run!(*ARGV)
-
